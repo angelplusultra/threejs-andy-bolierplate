@@ -6,6 +6,11 @@ import { TWEEN } from 'three/examples/jsm/libs/tween.module.min.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass.js'
+import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import {BokehPass} from 'three/examples/jsm/postprocessing/BokehPass.js'
+import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader.js'
+import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer.js'
 
 /////////////////////////////////////////////////////////////////////////
 //// DRACO LOADER TO LOAD DRACO COMPRESSED MODELS FROM BLENDER
@@ -35,9 +40,21 @@ container.appendChild(renderer.domElement) // add the renderer to html div
 
 /////////////////////////////////////////////////////////////////////////
 ///// CAMERAS CONFIG
-const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 100)
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 1000)
 camera.position.set(34,16,-20)
 scene.add(camera)
+const composer = new EffectComposer(renderer)
+composer.addPass(new RenderPass(scene, camera))
+composer.addPass(new UnrealBloomPass({x: 1024, y: 1024}, 0.08, 1.0, 0.75))
+const bokehPass = new BokehPass(scene, camera, {
+    focus: 0.5,
+    aperture:0.0005,
+    maxblur: 0.01,
+    width: window.innerWidth,
+    height: window.innerHeight
+
+})
+// composer.addPass(bokehPass)
 
 /////////////////////////////////////////////////////////////////////////
 ///// MAKE EXPERIENCE FULL SCREEN
@@ -66,42 +83,43 @@ scene.add(sunLight)
 
 /////////////////////////////////////////////////////////////////////////
 ///// LOADING GLB/GLTF MODEL FROM BLENDER
+let model 
 loader.load('models/gltf/starter-scene.glb', function (gltf) {
-
+    model = gltf
     scene.add(gltf.scene)
 })
 
 /////////////////////////////////////////////////////////////////////////
 //// INTRO CAMERA ANIMATION USING TWEEN
-function introAnimation() {
-    controls.enabled = false //disable orbit controls to animate the camera
+// function introAnimation() {
+//     controls.enabled = false //disable orbit controls to animate the camera
     
-    new TWEEN.Tween(camera.position.set(26,4,-35 )).to({ // from camera position
-        x: 16, //desired x position to go
-        y: 50, //desired y position to go
-        z: -0.1 //desired z position to go
-    }, 6500) // time take to animate
-    .delay(1000).easing(TWEEN.Easing.Quartic.InOut).start() // define delay, easing
-    .onComplete(function () { //on finish animation
-        controls.enabled = true //enable orbit controls
-        setOrbitControlsLimits() //enable controls limits
-        TWEEN.remove(this) // remove the animation from memory
-    })
-}
+//     new TWEEN.Tween(camera.position.set(26,4,-35 )).to({ // from camera position
+//         x: 16, //desired x position to go
+//         y: 50, //desired y position to go
+//         z: -0.1 //desired z position to go
+//     }, 6500) // time take to animate
+//     .delay(1000).easing(TWEEN.Easing.Quartic.InOut).start() // define delay, easing
+//     .onComplete(function () { //on finish animation
+//         controls.enabled = true //enable orbit controls
+//         setOrbitControlsLimits() //enable controls limits
+//         TWEEN.remove(this) // remove the animation from memory
+//     })
+// }
 
-introAnimation() // call intro animation on start
+// introAnimation() // call intro animation on start
 
 /////////////////////////////////////////////////////////////////////////
 //// DEFINE ORBIT CONTROLS LIMITS
-function setOrbitControlsLimits(){
-    controls.enableDamping = true
-    controls.dampingFactor = 0.04
-    controls.minDistance = 35
-    controls.maxDistance = 60
-    controls.enableRotate = true
-    controls.enableZoom = true
-    controls.maxPolarAngle = Math.PI /2.5
-}
+// function setOrbitControlsLimits(){
+//     controls.enableDamping = true
+//     controls.dampingFactor = 0.04
+//     controls.minDistance = 35
+//     controls.maxDistance = 60
+//     controls.enableRotate = true
+//     controls.enableZoom = true
+//     controls.maxPolarAngle = Math.PI /2.5
+// }
 
 /////////////////////////////////////////////////////////////////////////
 //// RENDER LOOP FUNCTION
@@ -110,8 +128,10 @@ function rendeLoop() {
     TWEEN.update() // update animations
 
     controls.update() // update orbit controls
-
-    renderer.render(scene, camera) // render the scene using the camera
+    if (model){
+        model.scene.rotation.y += 0.001
+    }
+    composer.render() // render the scene using the camera
 
     requestAnimationFrame(rendeLoop) //loop the render function
     
